@@ -42,6 +42,14 @@ REPLACEMENTS: dict[str, list[tuple[str, str]]] = {
         ('"applicationId": "bitwardendesktop"', '"applicationId": "wezwordndesktop"'),
         ('"identityName": "8bitSolutionsLLC.bitwardendesktop"', '"identityName": "WezCrypt.wezwordndesktop"'),
         ('"publisherDisplayName": "Bitwarden Inc"', '"publisherDisplayName": "WezCrypt"'),
+        # Unsigned-fork packaging: upstream win targets include "nsis-web"
+        # and "appx". AppX needs a Store publisher certificate this fork
+        # does not have; nsis-web downloads its installer payload pieces
+        # from the configured publish feed (cut above). CI run #9
+        # (2026-10-24) failed at the pack step after a fully green build;
+        # the deterministic unsigned targets are nsis + portable, selected
+        # here in the config itself instead of a fragile CLI override.
+        ('"target": ["portable", "nsis-web", "appx"]', '"target": ["nsis", "portable"]'),
     ],
     "apps/desktop/src/package.json": [
         ('"productName": "Bitwarden"', '"productName": "WezWordn"'),
