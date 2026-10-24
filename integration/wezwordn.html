@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'unsafe-inline'" />
+<title>WezWordn — الميزات المحلية</title>
+<style>
+  body { font-family: "Segoe UI", system-ui, sans-serif; margin: 24px; color: #1b1b1b; }
+  h1 { font-size: 20px; } h2 { font-size: 15px; margin-top: 28px; }
+  button { padding: 6px 14px; margin: 4px 0; cursor: pointer; }
+  pre, textarea, input { font-family: Consolas, monospace; }
+  textarea { width: 100%; min-height: 70px; }
+  .out { background: #f3f3f3; padding: 10px; white-space: pre-wrap; word-break: break-all; min-height: 18px; }
+  .note { color: #555; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<h1>WezWordn — الميزات المحلية (Windows)</h1>
+<p class="note">كل العمليات هنا محلية بالكامل وتعمل عبر WezWordnCore-TS في العملية الرئيسية.
+خزنة Bitwarden ومزامنتها وWindows Hello تبقى في واجهة التطبيق الرئيسية كما هي من upstream.</p>
+
+<h2>الملفات المشفرة (WZEN v1)</h2>
+<button id="btn-enc">تشفير ملف…</button>
+<button id="btn-list">تحديث القائمة</button>
+<div id="files" class="out"></div>
+<div id="files-out" class="out"></div>
+
+<h2>المصادقة الثنائية المحلية (TOTP)</h2>
+<label>Base32 secret <input id="totp-secret" size="34" placeholder="JBSWY3DPEHPK3PXP" /></label>
+<button id="btn-totp">الحصول على الرمز الحالي</button>
+<div id="totp-out" class="out"></div>
+
+<h2>مفاتيح المشاركة / الطوارئ (X25519 — داخل الجلسة فقط)</h2>
+<button id="btn-keygen">إنشاء زوج مفاتيح</button>
+<div id="key-out" class="out"></div>
+<label>استيراد مفتاح خاص (PKCS8 base64) <input id="key-import" size="40" /></label>
+<button id="btn-keyimport">استيراد</button>
+
+<h2>المشاركة الآمنة (.wezshare)</h2>
+<textarea id="share-item" placeholder='{"title":"مثال","username":"u","password":"p"}'></textarea>
+<label>مفتاح المستلم العام (SPKI base64) <input id="share-pub" size="50" /></label>
+<button id="btn-share">إنشاء حزمة مشاركة</button>
+<div id="share-out" class="out"></div>
+<textarea id="share-open-in" placeholder="الصق حزمة .wezshare هنا لفتحها بمفتاح الجلسة"></textarea>
+<label>keyId <input id="share-keyid" size="28" /></label>
+<button id="btn-share-open">فتح الحزمة</button>
+<div id="share-open-out" class="out"></div>
+
+<h2>الوصول الطارئ (Emergency Recovery)</h2>
+<label>مفتاح الخزنة (hex) <input id="rec-vaultkey" size="50" /></label>
+<label>مفتاح المستلم العام (SPKI base64) <input id="rec-pub" size="50" /></label>
+<button id="btn-rec">إنشاء حزمة استرداد</button>
+<div id="rec-out" class="out"></div>
+
+<script src="wezwordn-renderer.js"></script>
+</body>
+</html>
