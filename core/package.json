@@ -1,0 +1,11 @@
+{
+  "description": "WezWordnCore (Windows/TypeScript port) \u2014 literal port of the Swift WezWordnCore package semantics. Zero runtime dependencies: node:crypto + node:fs only.",
+  "name": "wezwordn-core",
+  "private": true,
+  "scripts": {
+    "build": "npx -y -p typescript@5 tsc -p tsconfig.json",
+    "test": "npx -y -p typescript@5 tsc -p tsconfig.json && node --test dist/test/*.test.js"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}
