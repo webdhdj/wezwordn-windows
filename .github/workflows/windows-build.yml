@@ -100,7 +100,16 @@ jobs:
       - name: Pack Windows x64 (NSIS + portable, unsigned)
         working-directory: upstream/apps/desktop
         shell: pwsh
-        run: npx electron-builder --win --x64 --config electron-builder.json -p never --config.win.target='["nsis","portable"]'
+        env:
+          DEBUG: electron-builder
+        run: |
+          # Targets come from the patched electron-builder.json itself
+          # (patch 01 sets win.target to ["nsis","portable"]); no CLI
+          # config override. Output is tee'd to a log that is ALWAYS
+          # uploaded below so a pack failure is self-diagnosing.
+          $ErrorActionPreference = "Continue"
+          npx electron-builder --win --x64 --config electron-builder.json -p never 2>&1 | Tee-Object -FilePath "$env:GITHUB_WORKSPACE\pack.log"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify produced executables
         shell: pwsh
@@ -120,6 +129,14 @@ jobs:
           name: WezWordn-Windows
           path: |
             upstream/apps/desktop/dist/*.exe
+          if-no-files-found: warn
+
+      - name: Upload pack log (always — the pack step is the fragile one)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PackLog
+          path: pack.log
           if-no-files-found: warn
 
       - name: Upload build logs on failure
