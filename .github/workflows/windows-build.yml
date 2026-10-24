@@ -1,0 +1,133 @@
+name: windows-build
+
+# WezWordn for Windows 11 — builds the Bitwarden desktop fork on a real
+# Windows runner. Three jobs:
+#   core-tests     — WezWordnCore-TS unit tests (Linux, fast gate)
+#   build-windows  — upstream desktop build + electron-builder NSIS/portable
+#                    (unsigned; CSC auto-discovery disabled on purpose)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+      - name: Build + test WezWordnCore-TS
+        working-directory: core
+        run: npm test
+
+  build-windows:
+    runs-on: windows-latest
+    needs: core-tests
+    timeout-minutes: 120
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      ELECTRON_NO_UPDATER: "1"
+    steps:
+      - name: Checkout WezWordn overlay
+        uses: actions/checkout@v4
+        with:
+          path: overlay
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Rust toolchain (desktop_native napi)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build WezWordnCore-TS (dist used by patch 02)
+        working-directory: overlay/core
+        run: npm test
+
+      - name: Fetch upstream bitwarden/clients (main tarball)
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri "https://github.com/bitwarden/clients/archive/refs/heads/main.tar.gz" -OutFile upstream.tar.gz
+          tar -xzf upstream.tar.gz
+          Rename-Item -Path "clients-main" -NewName "upstream"
+
+      - name: Apply WezWordn patches (01 identity, 02 integration)
+        shell: pwsh
+        run: |
+          python overlay/patches/01-identity.py upstream
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python overlay/patches/02-wezwordn-integration.py overlay upstream
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+
+      - name: Verify identity after patching
+        shell: pwsh
+        run: |
+          $builder = Get-Content upstream/apps/desktop/electron-builder.json -Raw
+          if ($builder -notmatch '"productName": "WezWordn"') { throw "productName not patched" }
+          if ($builder -notmatch '"appId": "com.wezcrypt.wezwordn"') { throw "appId not patched" }
+          $pkg = Get-Content upstream/apps/desktop/src/package.json -Raw
+          if ($pkg -notmatch '"productName": "WezWordn"') { throw "src package productName not patched" }
+          Write-Host "identity OK"
+
+      - name: Install upstream dependencies
+        working-directory: upstream
+        shell: pwsh
+        run: npm ci --ignore-scripts
+
+      - name: Build native module (desktop_native)
+        working-directory: upstream/apps/desktop
+        shell: pwsh
+        run: npm run build-native
+
+      - name: Build desktop app (webpack main/preload/renderer)
+        working-directory: upstream/apps/desktop
+        shell: pwsh
+        run: npm run build
+
+      - name: Copy WezWordn feature-window assets next to bundled main
+        shell: pwsh
+        run: |
+          Copy-Item upstream/apps/desktop/src/wezwordn/ui/* upstream/apps/desktop/build/ -Force
+          Get-ChildItem upstream/apps/desktop/build/wezwordn* | Select-Object Name
+
+      - name: Pack Windows x64 (NSIS + portable, unsigned)
+        working-directory: upstream/apps/desktop
+        shell: pwsh
+        run: npx electron-builder --win --x64 --config electron-builder.json -p never --config.win.target='["nsis","portable"]'
+
+      - name: Verify produced executables
+        shell: pwsh
+        run: |
+          $files = Get-ChildItem upstream/apps/desktop/dist/*.exe
+          if (-not $files) { throw "no .exe produced" }
+          foreach ($f in $files) {
+            $info = [System.Diagnostics.FileVersionInfo]::GetVersionInfo($f.FullName)
+            Write-Host "$($f.Name) | Product=$($info.ProductName) | Size=$($f.Length)"
+            if ($info.ProductName -notmatch "WezWordn") { throw "exe ProductName is not WezWordn: $($f.Name)" }
+          }
+
+      - name: Upload Windows artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WezWordn-Windows
+          path: |
+            upstream/apps/desktop/dist/*.exe
+          if-no-files-found: warn
+
+      - name: Upload build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: WindowsBuildFailureLogs
+          path: |
+            upstream/apps/desktop/dist/*.log
+            upstream/npm-debug.log
+          if-no-files-found: ignore
