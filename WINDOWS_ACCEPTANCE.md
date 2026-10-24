@@ -19,6 +19,21 @@ device-tested) / **محظور** (blocked).
 | 11 | Code signing / SmartScreen | محظور (مُعلن) | Unsigned by design until a certificate exists; CI sets `CSC_IDENTITY_AUTO_DISCOVERY=false` |
 | 12 | WezWordn icon set (.ico) | محظور (مُعلن) | Upstream icons remain; declared in patch 01 and README |
 
+## CI run #9 failure — root cause confirmed from the step log (2026-10-24)
+
+electron-builder 26.9.0 rejected the workflow's CLI override verbatim:
+`Unknown target: ["nsis","portable"]` — the JSON array was passed as a
+single literal target name (8s into the pack step; no signing, file, or
+certificate error). Everything before the pack step was green, so the
+failure was purely in how targets were passed, not in the app build.
+
+Fix (applied in this tree, pending re-push): patch 01 now sets
+`win.target = ["nsis", "portable"]` inside `electron-builder.json`
+itself (verified: JSON valid, target reads back correctly), and the
+workflow pack step no longer passes any CLI target override; pack
+output is now tee'd to `pack.log` and uploaded on every run so a future
+pack failure is self-diagnosing instead of unauthenticated-403.
+
 ## Known design limits (not defects)
 
 - Feature window opens via Ctrl+Shift+W / `--wezwordn` — a deep menu
